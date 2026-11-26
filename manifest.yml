@@ -1,0 +1,144 @@
+modules:
+  rovo:agent:
+    - key: triage-buddy-agent
+      name: Triage Buddy
+      description: A Rovo agent that triages Jira issues — suggests priority, labels
+        and an owner, and drafts the first reply.
+      prompt: |
+        You are Triage Buddy, a friendly teammate that helps software teams triage Jira issues.
+        You never guess. You only use the actions below to read real issue data, and you always
+        say where a suggestion comes from.
+        Your tools:
+        - get-issue: read one issue (summary, description, status, priority, labels, reporter, assignee).
+        - find-similar-issues: find past issues that look like this one. Use them to see how
+          the team handled the same kind of problem before.
+        - suggest-triage: compute a triage suggestion (priority, labels, likely owner, draft first
+          reply) from the issue and its similar issues. Always call this before recommending
+          a priority or an owner.
+        - apply-triage: apply a suggestion to the issue (set priority, add labels, set assignee).
+          Only call this when the user explicitly asks you to apply it.
+        How to triage:
+        1. Read the issue with get-issue.
+        2. Find similar issues and call suggest-triage.
+        3. Explain the suggestion in plain words: what priority and why, who looks like the
+          right owner and why (name the similar issues), and show the draft first reply.
+        4. Ask before applying anything. Never change an issue without being asked.
+        Keep answers short. If there is no good evidence for an owner, say so instead of
+        picking someone at random.
+      conversationStarters:
+        - Triage the issue on screen
+        - Who should own this issue?
+        - Draft a first reply for this issue
+      actions:
+        - get-issue
+        - find-similar-issues
+        - suggest-triage
+        - apply-triage
+  action:
+    - key: get-issue
+      name: Get issue
+      function: getIssue
+      actionVerb: GET
+      description: >
+        Read one Jira issue: summary, description, status, priority, labels,
+        reporter, assignee and created date.
+      inputs:
+        issueKey:
+          title: Issue key
+          type: string
+          required: true
+          description: The Jira issue key, for example PROJ-123.
+    - key: find-similar-issues
+      name: Find similar issues
+      function: findSimilarIssues
+      actionVerb: GET
+      description: >
+        Find past Jira issues similar to a given issue, by matching keywords
+        from its summary and description. Returns the closest matches with their
+        status, priority, assignee and resolution.
+      inputs:
+        issueKey:
+          title: Issue key
+          type: string
+          required: true
+          description: The Jira issue key to find similar issues for, for example PROJ-123.
+        maxResults:
+          title: Max results
+          type: integer
+          required: false
+          description: How many similar issues to return (default 5, max 10).
+    - key: suggest-triage
+      name: Suggest triage
+      function: suggestTriage
+      actionVerb: GET
+      description: >
+        Compute a triage suggestion for a Jira issue: suggested priority,
+        labels, likely owner and a draft first reply, based on the issue itself
+        and similar past issues.
+      inputs:
+        issueKey:
+          title: Issue key
+          type: string
+          required: true
+          description: The Jira issue key to triage, for example PROJ-123.
+    - key: apply-triage
+      name: Apply triage
+      function: applyTriage
+      actionVerb: TRIGGER
+      description: >
+        Apply a triage suggestion to a Jira issue: set its priority, add labels
+        and set its assignee. Only use this when the user explicitly asks to
+        apply the suggestion.
+      inputs:
+        issueKey:
+          title: Issue key
+          type: string
+          required: true
+          description: The Jira issue key to update, for example PROJ-123.
+        priority:
+          title: Priority
+          type: string
+          required: false
+          description: Priority name to set, for example Highest, High, Medium, Low or
+            Lowest.
+        labels:
+          title: Labels
+          type: string
+          required: false
+          description: Comma-separated labels to add, for example crash,auth.
+        assigneeAccountId:
+          title: Assignee account ID
+          type: string
+          required: false
+          description: Atlassian account ID of the person to assign the issue to.
+  jira:issuePanel:
+    - key: triage-buddy-panel
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: Triage Buddy
+      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+  function:
+    - key: getIssue
+      handler: index.getIssue
+    - key: findSimilarIssues
+      handler: index.findSimilarIssues
+    - key: suggestTriage
+      handler: index.suggestTriage
+    - key: applyTriage
+      handler: index.applyTriage
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+permissions:
+  scopes:
+    - read:jira-work
+    - read:jira-user
+    - write:jira-work
+app:
+  runtime:
+    name: nodejs24.x
+  id: ari:cloud:ecosystem::app/ab96119d-f66c-4a5f-aabc-7d23e655d9b4
